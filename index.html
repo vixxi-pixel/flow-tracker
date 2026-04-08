@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Flow — Transaction Tracker</title>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700&family=DM+Mono:wght@300;400;500&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet"/>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0e0e0f;
+      --surface: #161618;
+      --border: #2a2a2e;
+      --text: #f0ede8;
+      --muted: #6b6870;
+      --deposit: #8fdc9e;
+      --withdraw: #e87d7d;
+      --accent: #c5a95a;
+      --accent-dim: rgba(197,169,90,0.12);
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'DM Sans', sans-serif;
+      min-height: 100vh;
+      padding: 40px 20px;
+    }
+
+    .noise {
+      position: fixed; inset: 0; pointer-events: none; z-index: 0;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+      background-size: 200px;
+      opacity: 0.4;
+    }
+
+    .wrap {
+      position: relative; z-index: 1;
+      max-width: 760px; margin: 0 auto;
+    }
+
+    header {
+      display: flex; align-items: flex-end; justify-content: space-between;
+      margin-bottom: 48px;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 24px;
+    }
+
+    .logo {
+      font-family: 'Playfair Display', serif;
+      font-size: 2.4rem;
+      color: var(--accent);
+      letter-spacing: -0.5px;
+    }
+
+    .logo span { color: var(--muted); font-size: 0.9rem; font-family: 'DM Mono', monospace; display: block; margin-top: 2px; }
+
+    /* Summary Cards */
+    .cards {
+      display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px;
+      margin-bottom: 40px;
+    }
+
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 20px 22px;
+      position: relative; overflow: hidden;
+    }
+    .card::before {
+      content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px;
+    }
+    .card.balance::before { background: var(--accent); }
+    .card.deposits::before { background: var(--deposit); }
+    .card.withdrawals::before { background: var(--withdraw); }
+
+    .card-label {
+      font-family: 'DM Mono', monospace;
+      font-size: 0.65rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 10px;
+    }
+
+    .card-amount {
+      font-family: 'Playfair Display', serif;
+      font-size: 1.7rem;
+      font-weight: 700;
+    }
+    .card.balance .card-amount { color: var(--accent); }
+    .card.deposits .card-amount { color: var(--deposit); }
+    .card.withdrawals .card-amount { color: var(--withdraw); }
+
+    /* Form */
+    .form-section {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 28px;
+      margin-bottom: 36px;
+    }
+
+    .form-title {
+      font-family: 'DM Mono', monospace;
+      font-size: 0.7rem;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 20px;
+    }
+
+    .form-row { display: flex; gap: 12px; flex-wrap: wrap; }
+
+    .field { display: flex; flex-direction: column; gap: 6px; flex: 1; min-width: 130px; }
+    .field label { font-size: 0.75rem; color: var(--muted); font-family: 'DM Mono', monospace; }
+
+    input, select {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text);
+      font-family: 'DM Mono', monospace;
+      font-size: 0.9rem;
+      padding: 10px 14px;
+      outline: none;
+      transition: border-color 0.2s;
+      width: 100%;
+    }
+    input:focus, select:focus { border-color: var(--accent); }
+    select option { background: var(--surface); }
+
+    .type-toggle {
+      display: flex; gap: 0; border-radius: 8px; overflow: hidden;
+      border: 1px solid var(--border);
+    }
+    .type-btn {
+      flex: 1; padding: 10px; cursor: pointer; font-family: 'DM Mono', monospace;
+      font-size: 0.8rem; letter-spacing: 0.08em; border: none;
+      background: transparent; color: var(--muted); transition: all 0.2s;
+    }
+    .type-btn.active-deposit { background: rgba(143,220,158,0.15); color: var(--deposit); }
+    .type-btn.active-withdraw { background: rgba(232,125,125,0.15); color: var(--withdraw); }
+
+    .add-btn {
+      background: var(--accent-dim);
+      border: 1px solid var(--accent);
+      color: var(--accent);
+      border-radius: 8px;
+      padding: 10px 24px;
+      font-family: 'DM Mono', monospace;
+      font-size: 0.85rem;
+      letter-spacing: 0.08em;
+      cursor: pointer;
+      align-self: flex-end;
+      transition: background 0.2s, transform 0.1s;
+      white-space: nowrap;
+    }
+    .add-btn:hover { background: rgba(197,169,90,0.22); }
+    .add-btn:active { transform: scale(0.97); }
+
+    /* Filter row */
+    .filter-row {
+      display: flex; gap: 10px; margin-bottom: 20px; align-items: center; flex-wrap: wrap;
+    }
+    .filter-row span { font-family: 'DM Mono', monospace; font-size: 0.65rem; color: var(--muted); letter-spacing: 0.1em; text-transform: uppercase; }
+
+    .filter-btn {
+      background: transparent; border: 1px solid var(--border); border-radius: 20px;
+      color: var(--muted); font-family: 'DM Mono', monospace; font-size: 0.72rem;
+      padding: 5px 14px; cursor: pointer; transition: all 0.15s;
+    }
+    .filter-btn:hover { border-color: var(--accent); color: var(--accent); }
+    .filter-btn.active { background: var(--accent-dim); border-color: var(--accent); color: var(--accent); }
+
+    /* Transaction list */
+    .txn-list { display: flex; flex-direction: column; gap: 8px; }
+
+    .txn {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 14px 18px;
+      display: flex; align-items: center; gap: 14px;
+      animation: slideIn 0.25s ease;
+      transition: border-color 0.2s;
+    }
+    .txn:hover { border-color: #3a3a40; }
+
+    @keyframes slideIn {
+      from { opacity: 0; transform: translateY(-8px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    .txn-dot {
+      width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0;
+    }
+    .txn-dot.dep { background: var(--deposit); box-shadow: 0 0 6px rgba(143,220,158,0.4); }
+    .txn-dot.wit { background: var(--withdraw); box-shadow: 0 0 6px rgba(232,125,125,0.4); }
+
+    .txn-info { flex: 1; }
+    .txn-desc { font-size: 0.9rem; margin-bottom: 2px; }
+    .txn-meta { font-family: 'DM Mono', monospace; font-size: 0.7rem; color: var(--muted); }
+
+    .txn-amount {
+      font-family: 'Playfair Display', serif;
+      font-size: 1.05rem;
+      font-weight: 700;
+    }
+    .txn-amount.dep { color: var(--deposit); }
+    .txn-amount.wit { color: var(--withdraw); }
+
+    .txn-del {
+      background: none; border: none; cursor: pointer;
+      color: var(--muted); font-size: 1rem; padding: 2px 6px;
+      border-radius: 4px; transition: color 0.15s, background 0.15s;
+      line-height: 1;
+    }
+    .txn-del:hover { color: var(--withdraw); background: rgba(232,125,125,0.1); }
+
+    .empty {
+      text-align: center; padding: 60px 0;
+      font-family: 'DM Mono', monospace; font-size: 0.8rem; color: var(--muted);
+      letter-spacing: 0.1em;
+    }
+    .empty p { margin-top: 8px; font-size: 0.7rem; opacity: 0.6; }
+
+    @media (max-width: 520px) {
+      .cards { grid-template-columns: 1fr; }
+      .card-amount { font-size: 1.4rem; }
+      .logo { font-size: 1.8rem; }
+    }
+  </style>
+</head>
+<body>
+<div class="noise"></div>
+<div class="wrap">
+
+  <header>
+    <div>
+      <div class="logo">Flow</div>
+      <div style="font-family:'DM Mono',monospace;font-size:0.7rem;color:var(--muted);margin-top:6px;letter-spacing:0.08em;">DEPOSIT & WITHDRAW TRACKER</div>
+    </div>
+    <div id="txn-count" style="font-family:'DM Mono',monospace;font-size:0.75rem;color:var(--muted);"></div>
+  </header>
+
+  <!-- Summary Cards -->
+  <div class="cards">
+    <div class="card balance">
+      <div class="card-label">Current Balance</div>
+      <div class="card-amount" id="balance">$0.00</div>
+    </div>
+    <div class="card deposits">
+      <div class="card-label">Total Deposited</div>
+      <div class="card-amount" id="total-dep">$0.00</div>
+    </div>
+    <div class="card withdrawals">
+      <div class="card-label">Total Withdrawn</div>
+      <div class="card-amount" id="total-wit">$0.00</div>
+    </div>
+  </div>
+
+  <!-- Add Transaction Form -->
+  <div class="form-section">
+    <div class="form-title">Add Transaction</div>
+    <div class="form-row">
+      <div class="field" style="min-width:100px;max-width:160px;">
+        <label>Type</label>
+        <div class="type-toggle" id="type-toggle">
+          <button class="type-btn active-deposit" id="btn-dep" onclick="setType('deposit')">▲ Deposit</button>
+          <button class="type-btn" id="btn-wit" onclick="setType('withdraw')">▼ Withdraw</button>
+        </div>
+      </div>
+      <div class="field">
+        <label>Description</label>
+        <input type="text" id="desc" placeholder="e.g. Salary, Rent…" />
+      </div>
+      <div class="field" style="max-width:150px;">
+        <label>Amount ($)</label>
+        <input type="number" id="amount" placeholder="0.00" min="0" step="0.01"/>
+      </div>
+      <div class="field" style="max-width:160px;">
+        <label>Date</label>
+        <input type="date" id="date"/>
+      </div>
+      <button class="add-btn" onclick="addTransaction()">+ Add</button>
+    </div>
+  </div>
+
+  <!-- Filter -->
+  <div class="filter-row">
+    <span>Filter:</span>
+    <button class="filter-btn active" onclick="setFilter('all', this)">All</button>
+    <button class="filter-btn" onclick="setFilter('deposit', this)">Deposits</button>
+    <button class="filter-btn" onclick="setFilter('withdraw', this)">Withdrawals</button>
+  </div>
+
+  <!-- List -->
+  <div class="txn-list" id="txn-list"></div>
+</div>
+
+<script>
+  let txns = JSON.parse(localStorage.getItem('flow_txns') || '[]');
+  let txnType = 'deposit';
+  let activeFilter = 'all';
+
+  // Set today's date default
+  document.getElementById('date').valueAsDate = new Date();
+
+  function setType(t) {
+    txnType = t;
+    document.getElementById('btn-dep').className = 'type-btn' + (t==='deposit' ? ' active-deposit' : '');
+    document.getElementById('btn-wit').className = 'type-btn' + (t==='withdraw' ? ' active-withdraw' : '');
+  }
+
+  function setFilter(f, el) {
+    activeFilter = f;
+    document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+    el.classList.add('active');
+    render();
+  }
+
+  function fmt(n) {
+    return '$' + Math.abs(n).toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2});
+  }
+
+  function addTransaction() {
+    const desc = document.getElementById('desc').value.trim();
+    const amount = parseFloat(document.getElementById('amount').value);
+    const date = document.getElementById('date').value;
+    if (!desc || isNaN(amount) || amount <= 0 || !date) {
+      alert('Please fill in all fields with a valid amount.');
+      return;
+    }
+    txns.unshift({ id: Date.now(), type: txnType, desc, amount, date });
+    localStorage.setItem('flow_txns', JSON.stringify(txns));
+    document.getElementById('desc').value = '';
+    document.getElementById('amount').value = '';
+    document.getElementById('date').valueAsDate = new Date();
+    render();
+  }
+
+  function deleteTransaction(id) {
+    txns = txns.filter(t => t.id !== id);
+    localStorage.setItem('flow_txns', JSON.stringify(txns));
+    render();
+  }
+
+  function render() {
+    const totalDep = txns.filter(t=>t.type==='deposit').reduce((s,t)=>s+t.amount,0);
+    const totalWit = txns.filter(t=>t.type==='withdraw').reduce((s,t)=>s+t.amount,0);
+    const balance = totalDep - totalWit;
+
+    document.getElementById('balance').textContent = fmt(balance);
+    document.getElementById('total-dep').textContent = fmt(totalDep);
+    document.getElementById('total-wit').textContent = fmt(totalWit);
+    document.getElementById('txn-count').textContent = txns.length + ' transaction' + (txns.length!==1?'s':'');
+
+    const filtered = activeFilter === 'all' ? txns : txns.filter(t => t.type === activeFilter);
+    const list = document.getElementById('txn-list');
+
+    if (filtered.length === 0) {
+      list.innerHTML = `<div class="empty">No transactions yet<p>Add your first entry above</p></div>`;
+      return;
+    }
+
+    list.innerHTML = filtered.map(t => `
+      <div class="txn">
+        <div class="txn-dot ${t.type==='deposit'?'dep':'wit'}"></div>
+        <div class="txn-info">
+          <div class="txn-desc">${escHtml(t.desc)}</div>
+          <div class="txn-meta">${t.date} · ${t.type.charAt(0).toUpperCase()+t.type.slice(1)}</div>
+        </div>
+        <div class="txn-amount ${t.type==='deposit'?'dep':'wit'}">
+          ${t.type==='deposit'?'+':'-'}${fmt(t.amount)}
+        </div>
+        <button class="txn-del" onclick="deleteTransaction(${t.id})" title="Delete">×</button>
+      </div>
+    `).join('');
+  }
+
+  function escHtml(s) {
+    return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  render();
+</script>
+</body>
+</html>
