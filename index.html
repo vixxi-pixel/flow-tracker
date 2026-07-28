@@ -347,15 +347,14 @@
     const amount = parseFloat(document.getElementById('amount').value);
     const date = document.getElementById('date').value;
     const time = document.getElementById('time').value;
-    if (!desc || isNaN(amount) || amount <= 0 || !date || !time) {
-      alert('Please fill in all fields with a valid amount.');
+    if (isNaN(amount) || amount <= 0 || !date || !time) {
+      alert('Please enter a valid amount, date, and time.');
       return;
     }
     txns.unshift({ id: Date.now(), type: txnType, desc, amount, date, time });
     localStorage.setItem('flow_txns', JSON.stringify(txns));
     document.getElementById('desc').value = '';
     document.getElementById('amount').value = '';
-    document.getElementById('date').valueAsDate = new Date();
     document.getElementById('time').value = nowTimeStr();
     render();
   }
