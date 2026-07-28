@@ -285,6 +285,10 @@
         <label>Date</label>
         <input type="date" id="date"/>
       </div>
+      <div class="field" style="max-width:130px;">
+        <label>Time</label>
+        <input type="time" id="time"/>
+      </div>
       <button class="add-btn" onclick="addTransaction()">+ Add</button>
     </div>
   </div>
@@ -306,8 +310,13 @@
   let txnType = 'deposit';
   let activeFilter = 'all';
 
-  // Set today's date default
+  // Set today's date & current time defaults
+  function nowTimeStr() {
+    const d = new Date();
+    return String(d.getHours()).padStart(2,'0') + ':' + String(d.getMinutes()).padStart(2,'0');
+  }
   document.getElementById('date').valueAsDate = new Date();
+  document.getElementById('time').value = nowTimeStr();
 
   function setType(t) {
     txnType = t;
@@ -326,19 +335,28 @@
     return '$' + Math.abs(n).toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2});
   }
 
+  function fmtTime(t) {
+    const [h, m] = t.split(':').map(Number);
+    const ampm = h >= 12 ? 'PM' : 'AM';
+    const h12 = h % 12 || 12;
+    return h12 + ':' + String(m).padStart(2,'0') + ' ' + ampm;
+  }
+
   function addTransaction() {
     const desc = document.getElementById('desc').value.trim();
     const amount = parseFloat(document.getElementById('amount').value);
     const date = document.getElementById('date').value;
-    if (!desc || isNaN(amount) || amount <= 0 || !date) {
+    const time = document.getElementById('time').value;
+    if (!desc || isNaN(amount) || amount <= 0 || !date || !time) {
       alert('Please fill in all fields with a valid amount.');
       return;
     }
-    txns.unshift({ id: Date.now(), type: txnType, desc, amount, date });
+    txns.unshift({ id: Date.now(), type: txnType, desc, amount, date, time });
     localStorage.setItem('flow_txns', JSON.stringify(txns));
     document.getElementById('desc').value = '';
     document.getElementById('amount').value = '';
     document.getElementById('date').valueAsDate = new Date();
+    document.getElementById('time').value = nowTimeStr();
     render();
   }
 
@@ -371,7 +389,7 @@
         <div class="txn-dot ${t.type==='deposit'?'dep':'wit'}"></div>
         <div class="txn-info">
           <div class="txn-desc">${escHtml(t.desc)}</div>
-          <div class="txn-meta">${t.date} · ${t.type.charAt(0).toUpperCase()+t.type.slice(1)}</div>
+          <div class="txn-meta">${t.date}${t.time ? ' · ' + fmtTime(t.time) : ''} · ${t.type.charAt(0).toUpperCase()+t.type.slice(1)}</div>
         </div>
         <div class="txn-amount ${t.type==='deposit'?'dep':'wit'}">
           ${t.type==='deposit'?'+':'-'}${fmt(t.amount)}
